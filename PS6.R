@@ -194,18 +194,20 @@ microbenchmark(sg.mult(fn3, lower = rep(-1, 3),
                sg.parallel(fn3, lower = rep(-1, 3), 
                            upper = rep(1, 3), dim = 3))
 microbenchmark(sg.mult(fn5, lower = rep(-1, 5), 
-                       upper = rep(1, 3), dim = 5),
+                       upper = rep(1, 5), dim = 5),
                sg.parallel(fn5, lower = rep(-1, 5), 
                            upper = rep(1, 5), dim = 5))
 # The parallel function is longer in both instances.
 # This may be a result of the simplicity of the calculations, causing the 
 #      allocation to multiple nodes to take longer than the actual integration
-# Create 10-D function to test if the time improves over dimensionality
 
+# Create 10-D function to test if the time improves over dimensionality
 #X <- paste0('x[', 1:10, ']^', 1:10, collapse = ' + ') 
 fn10 <- function(x) (x[1]^1 + x[2]^2 + x[3]^3 + x[4]^4 + x[5]^5 + x[6]^6 + 
                        x[7]^7 + x[8]^8 + x[9]^9 + x[10]^10)
+sg.parallel(fn10, lower = rep(-1, 10), upper = rep(1, 10), dim = 10)
 
+# This will take awhile...
 microbenchmark(sg.mult(fn10, lower = rep(-1, 10), 
                        upper = rep(1, 10), dim = 10),
                sg.parallel(fn10, lower = rep(-1, 10), 
@@ -218,6 +220,28 @@ adaptIntegrate(fn3, c(-1,-1,-1), c(1,1,1))$integral
 adaptIntegrate(fn5, c(-1,-1,-1,-1,-1), c(1,1,1,1,1))$integral
 
 ### Find maximum of functions ###
-optim()
-optimize()
+# sin(x^2/2 - y^2/4)* cos(2x - exp(y))
+MaximizationFunction <- function(x) sin(((x[1]^2)/2) - ((x[2]^2)/4))*cos(2*x[1] - exp(x[2]))
+# Optimize function over both parameters
+optim(par = c(2.3,1.5), fn = MaximizationFunction,
+      lower = c(-1,-1), upper = c(3,3), method = 'L-BFGS-B',
+      control=list(fnscale=-1))
 
+# Modify function to take two separate arguments
+MaximizationFunction2 <- function(x, y) sin(((x^2)/2) - ((y^2)/4))*cos(2*x - exp(y))
+# Optimize over x for each slice of y from -1 to 3
+Slices <- lapply(seq(-1,3,0.0001), function(i) optimize(MaximizationFunction2, y=i, 
+                                              lower = c(-1,-1), upper = c(3,3), 
+                                              maximum = T)
+       )
+# Evalute which maximum among all slices is the largest (the global maximum)
+Max <- which(unlist(lapply(Slices, 
+                           function(x) x$maximum)
+                    ) == max(unlist(lapply(Slices, 
+                                           function(x) x$maximum)))
+             )
+# Show x and y values of global maximum along with maximum value
+c(Slices[Max][[1]]$maximum, seq(-1,3,0.0001)[Max], Slices[Max][[1]]$objective)
+
+# Based on the values from both optim and optimize, we can see that the global
+#     maximum appears to be at (2,1.4), where the function takes on a value of 1
